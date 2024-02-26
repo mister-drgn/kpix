@@ -1,10 +1,6 @@
 #Executables
-tpix
-tpix_*
-
-#Other
-tiger.svg
-test.py
+kpix
+kpix_*
 
 # VS code subfolder
 .vscode/

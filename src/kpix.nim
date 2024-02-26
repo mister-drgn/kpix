@@ -8,9 +8,12 @@ import std / [
   base64,
   strformat,
   strutils
+  # strbasics
 ],
   pixie,
   cligen
+
+# import nimprof
 
 const NimblePkgVersion {.strdefine.} = "Unknown"
 const version = NimblePkgVersion
@@ -62,19 +65,26 @@ proc addBackground(img: var Image) =
   bgimg.draw(img)
   img = bgimg
 
+proc imgData(img: Image): string =
+  for d in img.data:
+    result.add(char d.r)
+    result.add(char d.g)
+    result.add(char d.b)
+    result.add(char d.a) 
+
 proc renderImage(img: var Image) =
   let
-    imgStr = encode(encodeImage(img, PngFormat))
+    imgStr = encode(imgData(img))#encodeImage(img, PngFormat))
     imgLen = imgStr.len
 
   var payload = newStringOfCap(imgLen)
 
   if imgLen <= chunkSize:
-    var ctrlCode = "a=T,f=100;"
+    var ctrlCode = fmt"a=T,f=32,s={img.width},v={img.height};" #"a=T,f=100;"
     payload.addChunk(ctrlCode, imgStr)
   else:
     var
-      ctrlCode = "a=T,f=100,m=1;"
+      ctrlCode = fmt"a=T,f=32,s={img.width},v={img.height},m=1;" #"a=T,f=100,m=1;"
       chunk = chunkSize
 
     while chunk <= imgLen:
@@ -98,7 +108,7 @@ proc processImage(img: var Image, background, noresize, fullwidth: bool,
     img.addBackground
   img.renderImage
 
-proc tpix(
+proc kimg(
   files: seq[string],
   background = false, printname = false, noresize = false, fullwidth = false,
   width = 0, height = 0) =
@@ -144,7 +154,7 @@ proc tpix(
         echo fmt"Error: {getCurrentExceptionMsg()}"
 
 clCfg.version = version
-dispatch tpix,
+dispatch kimg,
   help = {
     "width": "Specify image width.",
     "height": "Specify image height.",
