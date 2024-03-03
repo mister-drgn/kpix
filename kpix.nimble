@@ -10,6 +10,7 @@ bin           = @["kpix"]
 requires "nim >= 2.0.0"
 requires "pixie"
 requires "cligen"
+requires "zippy"
 
 # task build_static, "Build tpix as a static binary using musl":
 #   exec "nimble c --gcc.exe:musl-gcc --gcc.linkerexe:musl-gcc --passL:-static --passC:-flto -d:release tpix.nim"

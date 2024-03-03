@@ -11,9 +11,11 @@ import std / [
   # strbasics
 ],
   pixie,
-  cligen
+  cligen,
+  zippy
 
 # import nimprof
+# --profiler:on --stacktrace:on
 
 const NimblePkgVersion {.strdefine.} = "Unknown"
 const version = NimblePkgVersion
@@ -32,7 +34,7 @@ proc terminalWidthPixels(istty: bool): int =
 
 proc add(result: var string, a: openArray[char]) =
   result.setLen result.len + a.len
-  copyMem result[^a.len].addr, a[0].unsafeAddr, a.len
+  copyMem result[^a.len].addr, a[0].addr, a.len
 
 proc addChunk(result: var string, ctrlCode: string, imgData: openArray[char]) =
   result.add escStart
@@ -65,26 +67,42 @@ proc addBackground(img: var Image) =
   bgimg.draw(img)
   img = bgimg
 
+proc imgDataCompressed(img: Image): string =
+  let length = img.width * img.height * 4
+
+  var compressed = compress(img.data[0].addr, length, dataFormat = dfDeflate)
+  stderr.write(fmt"{length=} {len compressed=}")
+  return encode(compressed)
+
 proc imgData(img: Image): string =
+  let length = img.width * img.height * 3
+  var pixSeq = newSeq[uint8](length)
+  copyMem(pixSeq[0].addr, img.data[0].addr, length)
+  return encode(pixSeq)
+
+proc imgDataRGB(img: Image): string =
+  let length = img.width * img.height * 3
+  var data = newStringOfCap(length)
   for d in img.data:
-    result.add(char d.r)
-    result.add(char d.g)
-    result.add(char d.b)
-    result.add(char d.a) 
+    data.add(char d.r)
+    data.add(char d.g)
+    data.add(char d.b)
+
+  return encode(data)
 
 proc renderImage(img: var Image) =
   let
-    imgStr = encode(imgData(img))#encodeImage(img, PngFormat))
+    imgStr = imgDataRGB(img)#encode(imgData(img))#encodeImage(img, PngFormat))
     imgLen = imgStr.len
 
-  var payload = newStringOfCap(imgLen)
-
+  var payload = newStringOfCap(imgLen * 2)
+  # stderr.write(fmt"{imgLen=} {chunkSize=}")
   if imgLen <= chunkSize:
-    var ctrlCode = fmt"a=T,f=32,s={img.width},v={img.height};" #"a=T,f=100;"
+    var ctrlCode = fmt"a=T,f=24,s={img.width},v={img.height};" #"a=T,f=100;"
     payload.addChunk(ctrlCode, imgStr)
   else:
     var
-      ctrlCode = fmt"a=T,f=32,s={img.width},v={img.height},m=1;" #"a=T,f=100,m=1;"
+      ctrlCode = fmt"a=T,f=24,s={img.width},v={img.height},c=50,r=20,m=1;" #"a=T,f=100,m=1;"
       chunk = chunkSize
 
     while chunk <= imgLen:
@@ -98,7 +116,7 @@ proc renderImage(img: var Image) =
     payload.addChunk(ctrlCode, imgStr.toOpenArray(chunk-chunkSize, imgLen-1))
 
   stdout.writeLine(payload)
-  #stderr.write("Terminal width in pixels: ", terminalWidthPixels(istty), "\n")
+  # stderr.write("Terminal width in pixels: ", terminalWidthPixels(istty), "\n")
 
 proc processImage(img: var Image, background, noresize, fullwidth: bool,
   termWidth, width, height: int) =
@@ -108,7 +126,7 @@ proc processImage(img: var Image, background, noresize, fullwidth: bool,
     img.addBackground
   img.renderImage
 
-proc kimg(
+proc kpix(
   files: seq[string],
   background = false, printname = false, noresize = false, fullwidth = false,
   width = 0, height = 0) =
@@ -154,7 +172,7 @@ proc kimg(
         echo fmt"Error: {getCurrentExceptionMsg()}"
 
 clCfg.version = version
-dispatch kimg,
+dispatch kpix,
   help = {
     "width": "Specify image width.",
     "height": "Specify image height.",
